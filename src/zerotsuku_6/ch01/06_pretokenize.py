@@ -1,4 +1,7 @@
 from collections import defaultdict
+import pickle
+from tqdm import tqdm
+import regex as re
 
 
 def merge(ids, pair, new_id):
@@ -25,6 +28,10 @@ def count_pairs(ids, counts=None):
         counts[pairs] += 1
     return counts
 
+def pretokenize(text):
+    pattern = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+    return re.findall(pattern, text)
+
 def train_bpe(input_text, vocab_size, end_token="<|endoftext|>"):
     texts =input_text.split(end_token)
 
@@ -50,7 +57,7 @@ def train_bpe(input_text, vocab_size, end_token="<|endoftext|>"):
         merge_rules[best_pair] = new_id
 
         for i in range(len(ids_list)):
-            ids_list[i] = merge(ids,best_pair, new_id)
+            ids_list[i] = merge(ids_list[i],best_pair, new_id)
 
     return merge_rules
 
@@ -97,17 +104,27 @@ class BPETokenizer:
         text = text_bytes.decode("utf-8", errors="replace")
         return text
 
+    @staticmethod
+    def load_from(filepath):
+        with open(filepath, "rb") as f:
+            merge_rules = pickle.load(f)
 
-sample_text = "Hello world!<|endoftext|>This is BPE training."
+        return BPETokenizer(merge_rules)
 
-merge_rules = train_bpe(sample_text, vocab_size=260)
+
+sample_text = "Say hello! Why hello? Just hello.<|endoftext|>Good morning!"
+
+merge_rules = train_bpe(sample_text, vocab_size=270)
 print(merge_rules)
-
 tokenizer = BPETokenizer(merge_rules=merge_rules)
 
-text = "Hello world!<|endoftext|>"
+text = "Say hello!"
 ids = tokenizer.encode(text)
 decoded = tokenizer.decode(ids)
 
 print(ids)
 print(decoded)
+print()
+
+for token_id in ids:
+    print(f"{token_id} -> '{tokenizer.decode([token_id])}'")
